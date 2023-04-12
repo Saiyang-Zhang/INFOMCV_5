@@ -5,8 +5,11 @@ import os
 import json
 import numpy as np
 import p4
+import pandas as pd
 from keras.optimizers import Adam
 from keras import layers
+from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks import ReduceLROnPlateau
 
 keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse",
             "run", "shoot_bow", "smoke", "throw", "wave"]
@@ -46,9 +49,9 @@ def load_data():
 # Extract middle frame and save it
 def extract_frame(train_files, train_labels, test_files, test_labels):
     video_data_path = './video_data/'
-    middle_frame_path = './train_middle_frames/'
 
     # Extract middle frames from train files
+    middle_frame_path = './train_middle_frames/'
     if not os.path.exists(middle_frame_path):
         os.makedirs(middle_frame_path)
     lb_num = 0
@@ -64,8 +67,8 @@ def extract_frame(train_files, train_labels, test_files, test_labels):
         cv2.imwrite(frame_path, frame)
         lb_num += 1
 
-    middle_frame_path = './test_middle_frames/'
     # Extract middle frames from test files
+    middle_frame_path = './test_middle_frames/'
     if not os.path.exists(middle_frame_path):
         os.makedirs(middle_frame_path)
     lb_num = 0
@@ -83,78 +86,84 @@ def extract_frame(train_files, train_labels, test_files, test_labels):
 
 # Load and create training data
 def load_Fra(train_files, train_labels, test_files, test_labels):
-    x_train = []
-    y_train = []
+    train_files_img = []
+    test_files_img = []
     for i, file in enumerate(train_files):
-        frame_path = os.path.join('./train_middle_frames/', file.split('.')[0] + '.jpg')
-        # print(frame_path)
-        img = cv2.imread(frame_path)
-        img = cv2.resize(img, (224, 224))
-        x_train.append(img)
-
-        # Create one-hot encoded label vector for each file based on its class
-        label = train_labels[i]
-        label_idx = keep_hmdb51.index(label)  # get the index of the class in the class list
-        label_vec = np.zeros(len(keep_hmdb51))
-        label_vec[label_idx] = 1
-        y_train.append(label_vec)
-
-    x_train = np.array(x_train)
-    y_train = np.array(y_train)
-    # print(x_train[0], len(x_train))
-    # print(y_train[0], len(y_train))
-
-    x_test = []
-    y_test = []
+         train_files_img.append(os.path.join(file.split('.')[0] + '.jpg'))
     for i, file in enumerate(test_files):
-        frame_path = os.path.join('./test_middle_frames/', file.split('.')[0] + '.jpg')
-        # print(frame_path)
-        img = cv2.imread(frame_path)
-        img = cv2.resize(img, (224, 224))
-        x_test.append(img)
+         test_files_img.append(os.path.join(file.split('.')[0] + '.jpg'))
 
-        # Create one-hot encoded label vector for each file based on its class
-        label = test_labels[i]
-        label_idx = keep_hmdb51.index(label)  # get the index of the class in the class list
-        label_vec = np.zeros(len(keep_hmdb51))
-        label_vec[label_idx] = 1
-        y_test.append(label_vec)
-
-    x_test = np.array(x_test)
-    y_test = np.array(y_test)
-
-    return x_train, y_train, x_test, y_test
+    train_datagen = ImageDataGenerator(rescale=1. / 255)
+    val_datagen = ImageDataGenerator(rescale=1. / 255)
+    train_generator = train_datagen.flow_from_dataframe(
+        dataframe=pd.DataFrame({'filename': train_files_img, 'label': train_labels}),
+        directory='./train_middle_frames/',
+        x_col='filename',
+        y_col='label',
+        target_size=(224, 224),
+        batch_size=32,
+        class_mode='categorical',
+        shuffle=False
+    )
+    val_generator = val_datagen.flow_from_dataframe(
+        dataframe=pd.DataFrame({'filename': test_files_img, 'label': test_labels}),
+        directory='./test_middle_frames/',
+        x_col='filename',
+        y_col='label',
+        target_size=(224, 224),
+        batch_size=32,
+        class_mode='categorical',
+        shuffle=False
+    )
+    # X_fra, y_fra = train_generator[0]
+    # print(len(y_fra))
+    return train_generator, val_generator
 
 # Build and train the model
-def HMDB_Fra(x_train, y_train, x_test, y_test):
+def HMDB_Fra(train_generator, val_generator, len_train, len_val):
     model = tf.keras.models.load_model('./DATA/Stanford40_final.h5')
     # transfer learning: freeze the weights of layers except for the last two layers
-    for layer in model.layers[:-2]:
-        layer.trainable = False
-
-    # transfer learning: freeze all layers
-    # model.trainable = False
+    # for layer in model.layers[:-2]:
+    #     layer.trainable = False
 
     new_output = layers.Dense(12, activation='softmax', name='fra_dense')(model.layers[-2].output)
     fine_tuned_model = tf.keras.models.Model(inputs=model.inputs, outputs=new_output)
     fine_tuned_model.summary()
 
-    fine_tuned_model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.0001), metrics=['accuracy'])
+    fine_tuned_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3)
 
-    #HMDB = fine_tuned_model.fit(x_train, y_train, epochs=15, validation_split=0.1)
-    HMDB = fine_tuned_model.fit(x_train, y_train, epochs=15, validation_data=(x_test, y_test))
+    HMDB = model.fit(
+            train_generator,
+            steps_per_epoch=len_train // 32,
+            epochs=13,
+            validation_data=val_generator,
+            validation_steps=len_val // 32,
+            callbacks=[lr_scheduler])
+
+    # Convert the learning rate to a Python float
+    lr_value = float(np.array(HMDB.history['lr'])[0])
+    HMDB_new = HMDB.history.copy()
+    HMDB_new['lr'] = lr_value
 
     fine_tuned_model.save('./DATA/HMDB_final.h5')
     with open('./DATA/HMDB_final.json', 'w') as f:
-        json.dump(HMDB.history, f)
+        # json.dump(HMDB.history, f)
+        json.dump(HMDB_new, f)
 
 
 if __name__ == '__main__':
     # train_files, train_labels, test_files, test_labels = load_data()
-    # extract_frame(train_files, train_labels, test_files, test_labels)
-    # x_train, y_train, x_test, y_test = load_Fra(train_files, train_labels, test_files, test_labels)
-    # HMDB_Fra(x_train, y_train, x_test, y_test)
+    # # # extract_frame(train_files, train_labels, test_files, test_labels)
+    # train_generator, val_generator = load_Fra(train_files, train_labels, test_files, test_labels)
+    # HMDB_Fra(train_generator, val_generator, len(train_files), len(test_files))
+
     filename_final = './DATA/HMDB_final.json'
     # p4.plotting(filename_final)
 
     p4.topAcc([filename_final])
+
+    # p4.comparison(filename, filename_final)
+
+    # model = tf.keras.models.load_model('./DATA/HMDB_final.h5')
+    # model.summary()

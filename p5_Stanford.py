@@ -3,10 +3,12 @@ import p4
 import cv2
 import tensorflow as tf
 import pandas as pd
+import numpy as np
 from collections import Counter
 from keras import layers, regularizers
 from keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
+from keras.callbacks import ReduceLROnPlateau
 
 keep_stanford40 = ["applauding", "climbing", "drinking", "jumping", "pouring_liquid", "riding_a_bike", "riding_a_horse",
         "running", "shooting_an_arrow", "smoking", "throwing_frisby", "waving_hands"]
@@ -61,44 +63,40 @@ def Stanford40():
         shuffle=False
     )
 
-    # Define the model
     model = tf.keras.Sequential([
-        layers.Conv2D(32, (3,3), activation='relu', input_shape=(224, 224, 3)),
+        layers.Conv2D(16, (3,3), activation='relu', input_shape=(224, 224, 3)),
         layers.MaxPooling2D(2, 2),
-        layers.Conv2D(64, (3,3), activation='relu'),
+        layers.Conv2D(32, (3,3), activation='relu'),
         layers.MaxPooling2D(2,2),
-        layers.Conv2D(128, (3,3), activation='relu'),
+        layers.Conv2D(64, (5,5), activation='relu'),
         layers.MaxPooling2D(2,2),
-        layers.Conv2D(128, (3,3), activation='relu'),
+        layers.Conv2D(64, (5,5), activation='relu'),
         layers.MaxPooling2D(2,2),
+        layers.Dropout(0.5),
         layers.Flatten(),
-        layers.Dense(512, activation='relu', name='sta_dense'),
+        layers.Dense(256, activation='relu', name='sta_dense'),
         layers.Dropout(0.5),
         layers.Dense(12, activation='softmax')
     ])
+    model.summary()
 
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    model.summary()
-    # Train the model
-    # Stanford = model.fit(
-    #         train_generator,
-    #         steps_per_epoch=len(train_exp) // 32,
-    #         epochs=10,
-    #         validation_data=val_generator,
-    #         validation_steps=len(val_exp) // 32)
-
-    Stanford = model.fit(train_generator, epochs=15, validation_data=val_generator)
+    Stanford = model.fit(
+            train_generator,
+            steps_per_epoch=len(train) // 32,
+            epochs=13,
+            validation_data=val_generator,
+            validation_steps=len(test) // 32)
 
     model.save('./DATA/Stanford40_final.h5')
     with open('./DATA/Stanford40_final.json', 'w') as f:
         json.dump(Stanford.history, f)
 
 if __name__ == '__main__':
-    # Stanford40()
-    # filename = './DATA/Stanford40_1_final.json'
+    Stanford40()
     filename_final = './DATA/Stanford40_final.json'
 
-    # p4.plotting(filename_final)
+    p4.plotting(filename_final)
     # p4.comparison(filename, filename_final)
 
     p4.topAcc([filename_final])
