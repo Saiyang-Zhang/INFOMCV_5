@@ -10,6 +10,7 @@ from keras.optimizers import Adam
 from keras import layers
 from keras.preprocessing.image import ImageDataGenerator
 from keras.callbacks import ReduceLROnPlateau
+from sklearn.model_selection import train_test_split
 
 keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse",
             "run", "shoot_bow", "smoke", "throw", "wave"]
@@ -49,11 +50,11 @@ def load_data():
 # Extract middle frame and save it
 def extract_frame(train_files, train_labels, test_files, test_labels):
     video_data_path = './video_data/'
-
-    # Extract middle frames from train files
-    middle_frame_path = './train_middle_frames/'
+    middle_frame_path = './middle_frames/'
     if not os.path.exists(middle_frame_path):
         os.makedirs(middle_frame_path)
+
+    # Extract middle frames from train files
     lb_num = 0
     for file in train_files:
         video_path = os.path.join(video_data_path,train_labels[lb_num], file)
@@ -68,9 +69,6 @@ def extract_frame(train_files, train_labels, test_files, test_labels):
         lb_num += 1
 
     # Extract middle frames from test files
-    middle_frame_path = './test_middle_frames/'
-    if not os.path.exists(middle_frame_path):
-        os.makedirs(middle_frame_path)
     lb_num = 0
     for file in test_files:
         video_path = os.path.join(video_data_path, test_labels[lb_num], file)
@@ -93,21 +91,35 @@ def load_Fra(train_files, train_labels, test_files, test_labels):
     for i, file in enumerate(test_files):
          test_files_img.append(os.path.join(file.split('.')[0] + '.jpg'))
 
+    train_exp, val_exp, trainLabels_exp, valLabels_exp = train_test_split(train_files_img, train_labels, test_size=0.1,
+                                                                          stratify=train_labels, random_state=0)
+
+    all_files = train_files_img + test_files_img
+    all_labels = train_labels + test_labels
+    # for HMDB_Fra
+    # train, test, trainLabels, testLabels = train_test_split(all_files, all_labels, test_size=0.1,
+    #                                                         stratify=all_labels, random_state=0)
+    # for two-stream only
+    train, test, trainLabels, testLabels = train_test_split(all_files, all_labels, test_size=0.1, shuffle=False)
+
     train_datagen = ImageDataGenerator(rescale=1. / 255)
     val_datagen = ImageDataGenerator(rescale=1. / 255)
     train_generator = train_datagen.flow_from_dataframe(
-        dataframe=pd.DataFrame({'filename': train_files_img, 'label': train_labels}),
-        directory='./train_middle_frames/',
+        dataframe=pd.DataFrame({'filename': train, 'label': trainLabels}),
+        # dataframe=pd.DataFrame({'filename': train_exp, 'label': trainLabels_exp}),    # validation
+        directory='./middle_frames/',
         x_col='filename',
         y_col='label',
         target_size=(224, 224),
         batch_size=32,
         class_mode='categorical',
-        shuffle=False
+        # shuffle=True  # for HMDB_Fra
+        shuffle=False   # for two-stream only
     )
     val_generator = val_datagen.flow_from_dataframe(
-        dataframe=pd.DataFrame({'filename': test_files_img, 'label': test_labels}),
-        directory='./test_middle_frames/',
+        dataframe=pd.DataFrame({'filename': test, 'label': testLabels}),
+        # dataframe=pd.DataFrame({'filename': val_exp, 'label': valLabels_exp}),        # validation
+        directory='./middle_frames/',
         x_col='filename',
         y_col='label',
         target_size=(224, 224),
@@ -118,6 +130,21 @@ def load_Fra(train_files, train_labels, test_files, test_labels):
     # X_fra, y_fra = train_generator[0]
     # print(len(y_fra))
     return train_generator, val_generator
+
+
+def load_Fra_Two(train_files, train_labels, test_files, test_labels):
+    train_files_img = []
+    test_files_img = []
+    for i, file in enumerate(train_files):
+         train_files_img.append(os.path.join(file.split('.')[0] + '.jpg'))
+    for i, file in enumerate(test_files):
+         test_files_img.append(os.path.join(file.split('.')[0] + '.jpg'))
+
+    all_files = train_files_img + test_files_img
+    all_labels = train_labels + test_labels
+
+    return all_files, all_labels
+
 
 # Build and train the model
 def HMDB_Fra(train_generator, val_generator, len_train, len_val):
@@ -135,10 +162,12 @@ def HMDB_Fra(train_generator, val_generator, len_train, len_val):
 
     HMDB = model.fit(
             train_generator,
-            steps_per_epoch=len_train // 32,
+            steps_per_epoch=(len_train+len_val) * 0.9 // 32,
+            # steps_per_epoch=(len_train * 0.9) // 32,      # validation
             epochs=13,
             validation_data=val_generator,
-            validation_steps=len_val // 32,
+            validation_steps=(len_train+len_val) * 0.1 // 32,
+            # validation_steps=(len_train * 0.1) // 32,     # validation
             callbacks=[lr_scheduler])
 
     # Convert the learning rate to a Python float
@@ -146,22 +175,23 @@ def HMDB_Fra(train_generator, val_generator, len_train, len_val):
     HMDB_new = HMDB.history.copy()
     HMDB_new['lr'] = lr_value
 
-    fine_tuned_model.save('./DATA/HMDB_final.h5')
-    with open('./DATA/HMDB_final.json', 'w') as f:
+    fine_tuned_model.save('./DATA/HMDB_final_1.h5')
+    with open('./DATA/HMDB_final_validation_1.json', 'w') as f:
         # json.dump(HMDB.history, f)
         json.dump(HMDB_new, f)
 
 
 if __name__ == '__main__':
     # train_files, train_labels, test_files, test_labels = load_data()
-    # # # extract_frame(train_files, train_labels, test_files, test_labels)
+    # # extract_frame(train_files, train_labels, test_files, test_labels)
     # train_generator, val_generator = load_Fra(train_files, train_labels, test_files, test_labels)
     # HMDB_Fra(train_generator, val_generator, len(train_files), len(test_files))
 
     filename_final = './DATA/HMDB_final.json'
+    filename_validation = './DATA/HMDB_final_validation.json'
     # p4.plotting(filename_final)
 
-    p4.topAcc([filename_final])
+    p4.topAcc([filename_final, filename_validation])
 
     # p4.comparison(filename, filename_final)
 

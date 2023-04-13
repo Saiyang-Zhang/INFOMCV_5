@@ -84,9 +84,11 @@ def Stanford40():
     Stanford = model.fit(
             train_generator,
             steps_per_epoch=len(train) // 32,
+            #steps_per_epoch=len(train_exp) // 32,
             epochs=13,
             validation_data=val_generator,
             validation_steps=len(test) // 32)
+            #validation_steps = len(val_exp) // 32)
 
     model.save('./DATA/Stanford40_final.h5')
     with open('./DATA/Stanford40_final.json', 'w') as f:
@@ -95,11 +97,11 @@ def Stanford40():
 if __name__ == '__main__':
     Stanford40()
     filename_final = './DATA/Stanford40_final.json'
-
-    p4.plotting(filename_final)
+    filename_validation = './DATA/Stanford40_final_validation.json'
+    # p4.plotting(filename_final)
     # p4.comparison(filename, filename_final)
 
-    p4.topAcc([filename_final])
+    p4.topAcc([filename_final, filename_validation])
 
     # p4.testing('./DATA/Stanford40.h5')
     # p4.weights('./DATA')

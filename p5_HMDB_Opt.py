@@ -11,8 +11,9 @@ from keras import layers, regularizers
 from tqdm import tqdm
 from keras.utils import to_categorical
 from keras.utils import Sequence
+from sklearn.model_selection import train_test_split
 
-
+# Generate batches of data
 class OpticalFlowSequence(Sequence):
     def __init__(self, stack_dir, file_names, labels, batch_size, shuffle=True):
         self.stack_dir = stack_dir
@@ -126,18 +127,62 @@ def load_Opt(train_files, train_labels, test_files, test_labels):
     test_label_indices = [label_dict[label] for label in test_labels]
     test_onehot_labels = to_categorical(test_label_indices)
 
-    train_data_dir = './train_optical_flow/'
+    train_exp, val_exp, trainLabels_exp, valLabels_exp = train_test_split(train_files_opt, train_onehot_labels,
+                                                                          test_size=0.1,stratify=train_labels,
+                                                                          random_state=0)
+
+    all_files = train_files_opt + test_files_opt
+    all_labels = np.concatenate((train_onehot_labels, test_onehot_labels), axis=0)
+    # for HMDB_Opt
+    # train, test, trainLabels, testLabels = train_test_split(all_files, all_labels, test_size=0.1,
+    #                                                         stratify=all_labels, random_state=0)
+    # for two-stream only
+    train, test, trainLabels, testLabels = train_test_split(all_files, all_labels, test_size=0.1, shuffle=False)
+
+    data_dir = './optical_flow/'
     batch_size = 32
-    train_flow_sequence = OpticalFlowSequence(train_data_dir, train_files_opt, train_onehot_labels,
+    # validation
+    # train_flow_sequence = OpticalFlowSequence(data_dir, train_exp, trainLabels_exp,
+    #                                           batch_size, True)
+    # print(train_flow_sequence)
+    # test_flow_sequence = OpticalFlowSequence(data_dir, val_exp, valLabels_exp,
+    #                                           batch_size, False)
+    # print(test_flow_sequence)
+
+    # for HMDB_Opt
+    # train_flow_sequence = OpticalFlowSequence(data_dir, train, trainLabels,
+    #                                           batch_size, True)
+    # for two-stream only
+    train_flow_sequence = OpticalFlowSequence(data_dir, train, trainLabels,
                                               batch_size, False)
     print(train_flow_sequence)
-    test_data_dir = './test_optical_flow/'
-    test_flow_sequence = OpticalFlowSequence(test_data_dir, test_files_opt, test_onehot_labels,
-                                             batch_size, False)
+    test_flow_sequence = OpticalFlowSequence(data_dir, test, testLabels,
+                                              batch_size, False)
     print(test_flow_sequence)
+
     # x_test, y_test = test_flow_sequence[0]
     # print(x_test.shape)
     return train_flow_sequence, test_flow_sequence
+
+
+def load_Opt_Two(train_files, train_labels, test_files, test_labels):
+    train_files_opt = []
+    test_files_opt = []
+    for i, file in enumerate(train_files):
+         train_files_opt.append(os.path.join(file.split('.')[0] + '.npy'))
+    for i, file in enumerate(test_files):
+         test_files_opt.append(os.path.join(file.split('.')[0] + '.npy'))
+
+    label_dict = {label: index for index, label in enumerate(keep_hmdb51)}
+    train_label_indices = [label_dict[label] for label in train_labels]
+    train_onehot_labels = to_categorical(train_label_indices)
+    test_label_indices = [label_dict[label] for label in test_labels]
+    test_onehot_labels = to_categorical(test_label_indices)
+
+    all_files = train_files_opt + test_files_opt
+    all_labels = np.concatenate((train_onehot_labels, test_onehot_labels), axis=0)
+
+    return all_files, all_labels
 
 
 # Build and train the model
@@ -161,10 +206,12 @@ def HMDB_Opt(train_generator, val_generator, len_train, len_val):
 
     HMDB_Opt = model.fit(
             train_generator,
-            steps_per_epoch=len_train // 32,
+            #steps_per_epoch=(len_train * 0.9) // 32,        # validation
+            steps_per_epoch=(len_train+len_val) * 0.9 // 32,
             epochs=13,
             validation_data=val_generator,
-            validation_steps=len_val // 32)
+            #validation_steps=(len_train * 0.1) // 32,       # validation
+            validation_steps=(len_train+len_val) * 0.1 // 32)
 
     if not os.path.exists('./DATA/'):
         os.makedirs('./DATA/')
@@ -175,13 +222,13 @@ def HMDB_Opt(train_generator, val_generator, len_train, len_val):
 
 if __name__ == '__main__':
     # train_files, train_labels, test_files, test_labels = p5_HMDB_Fra.load_data()
-    # # extract_opt_save(train_files, train_labels, './train_optical_flow/')
-    # # extract_opt_save(test_files, test_labels, './test_optical_flow/')
+    # # extract_opt_save(train_files, train_labels, './optical_flow/')
+    # # extract_opt_save(test_files, test_labels, './optical_flow/')
     # train_generator, val_generator = load_Opt(train_files, train_labels, test_files, test_labels)
     # HMDB_Opt(train_generator, val_generator, len(train_files), len(test_files))
 
-    # filename = './DATA/HMDB_Opt_final_0.json'
     filename_final = './DATA/HMDB_Opt_final.json'
+    filename_validation = './DATA/HMDB_Opt_final_validation.json'
     # p4.plotting(filename_final)
     # p4.comparison(filename, filename_final)
     #
@@ -189,4 +236,4 @@ if __name__ == '__main__':
     # # for i, w in enumerate(model.weights):
     # #     print(i, w.name)
     #
-    p4.topAcc([filename_final])
+    p4.topAcc([filename_final, filename_validation])
