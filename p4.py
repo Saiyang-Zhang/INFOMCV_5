@@ -192,8 +192,8 @@ def plotting(filename):
         history = json.load(f)
 
     # Plot the training/validation loss per epoch
-    plt.plot(history['loss'], label='Training loss')
-    plt.plot(history['val_loss'], label='Validation loss')
+    plt.plot(history['loss'], label='Train loss')
+    plt.plot(history['val_loss'], label='Test loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
@@ -202,8 +202,8 @@ def plotting(filename):
     plt.close()
 
     # Plot the training/validation accuracy per epoch
-    plt.plot(history['accuracy'], label='Training accuracy')
-    plt.plot(history['val_accuracy'], label='Validation accuracy')
+    plt.plot(history['accuracy'], label='Train accuracy')
+    plt.plot(history['val_accuracy'], label='Test accuracy')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.legend()
