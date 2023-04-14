@@ -182,10 +182,10 @@ def HMDB_Fra(train_generator, val_generator, len_train, len_val):
 
 
 if __name__ == '__main__':
-    # train_files, train_labels, test_files, test_labels = load_data()
-    # # extract_frame(train_files, train_labels, test_files, test_labels)
-    # train_generator, val_generator = load_Fra(train_files, train_labels, test_files, test_labels)
-    # HMDB_Fra(train_generator, val_generator, len(train_files), len(test_files))
+    train_files, train_labels, test_files, test_labels = load_data()
+    extract_frame(train_files, train_labels, test_files, test_labels)
+    train_generator, val_generator = load_Fra(train_files, train_labels, test_files, test_labels)
+    HMDB_Fra(train_generator, val_generator, len(train_files), len(test_files))
 
     filename_final = './DATA/HMDB_final.json'
     filename_validation = './DATA/HMDB_final_validation.json'
