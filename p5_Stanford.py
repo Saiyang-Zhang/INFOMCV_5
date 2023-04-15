@@ -13,6 +13,7 @@ from keras.callbacks import ReduceLROnPlateau
 keep_stanford40 = ["applauding", "climbing", "drinking", "jumping", "pouring_liquid", "riding_a_bike", "riding_a_horse",
         "running", "shooting_an_arrow", "smoking", "throwing_frisby", "waving_hands"]
 
+
 #Build and train the model
 def Stanford40():
     # Split data (skeleton code)
@@ -34,6 +35,11 @@ def Stanford40():
     all_labels = train_labels + test_labels
     train, test, trainLabels, testLabels = train_test_split(all_files, all_labels, test_size=0.1,
                                                             stratify=all_labels, random_state=0)
+
+    # Choice 1: data augmentation
+    # train_datagen = ImageDataGenerator(
+    #     rescale=1. / 255,
+    #     horizontal_flip=True)
 
     # Create the training and validation data
     train_datagen = ImageDataGenerator(rescale=1. / 255)
@@ -90,18 +96,23 @@ def Stanford40():
             validation_steps=len(test) // 32)
             #validation_steps = len(val_exp) // 32)
 
-    model.save('./DATA/Stanford40_final.h5')
-    with open('./DATA/Stanford40_final.json', 'w') as f:
+    model.save('./DATA/Stanford40_final_1.h5')
+    with open('./DATA/Stanford40_final_1.json', 'w') as f:
         json.dump(Stanford.history, f)
 
+    # model.save('./DATA/Stanford40_aug.h5')
+    # with open('./DATA/Stanford40_aug.json', 'w') as f:
+    #     json.dump(Stanford.history, f)
+
 if __name__ == '__main__':
-    Stanford40()
+    # Stanford40()
     filename_final = './DATA/Stanford40_final.json'
     filename_validation = './DATA/Stanford40_final_validation.json'
-    # p4.plotting(filename_final)
-    # p4.comparison(filename, filename_final)
+    filename_aug = './DATA/Stanford40_aug.json'
+    # p4.plotting(filename_aug)
+    # p4.comparison(filename_final, filename_aug)
 
-    p4.topAcc([filename_final, filename_validation])
+    # p4.topAcc([filename_final, filename_validation, filename_aug])
 
-    # p4.testing('./DATA/Stanford40.h5')
-    # p4.weights('./DATA')
+    model = tf.keras.models.load_model('./DATA/Stanford40_final.h5')
+    model.summary()

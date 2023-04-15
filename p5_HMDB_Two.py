@@ -52,6 +52,16 @@ class TwoStreamSequenceGen(Sequence):
         y = y_fra
         return X, y
 
+# Choice 4: 1x1 convolutions to connect activations
+def connection(frame_output, opticalflow_output):
+    frame_output = layers.Reshape((1, 1, 12))(frame_output)
+    opticalflow_output = layers.Reshape((1, 1, 12))(opticalflow_output)
+    concatenated = layers.concatenate([frame_output, opticalflow_output], axis=-1)
+    concatenated = layers.Conv2D(64, (1, 1), activation='relu', name='two_conv2d')(concatenated)
+    flatten = layers.Flatten()(concatenated)
+    return flatten
+
+
 # Build and train the model
 def HMDB_Two(train_generator_fra, val_generator_fra, train_generator_opt, val_generator_opt,
              len_train, len_val):
@@ -65,8 +75,10 @@ def HMDB_Two(train_generator_fra, val_generator_fra, train_generator_opt, val_ge
 
     frame_output = frame_model(frame_input)
     opticalflow_output = opticalflow_model(opticalflow_input)
+    # merged = layers.concatenate([frame_output, opticalflow_output])
+    # Choice 4: 1x1 convolutions to connect activations
+    merged = connection(frame_output, opticalflow_output)
 
-    merged = layers.concatenate([frame_output, opticalflow_output])
     merged = layers.Dense(256, activation='relu', name='two_dense')(merged)
     merged = layers.Dropout(0.5)(merged)
     output = layers.Dense(12, activation='softmax', name='two_dense_1')(merged)
@@ -84,16 +96,15 @@ def HMDB_Two(train_generator_fra, val_generator_fra, train_generator_opt, val_ge
         steps_per_epoch=len_train // 32,
         epochs=13,
         validation_data=test_two_stream,
-        validation_steps=len_val // 32
-    )
+        validation_steps=len_val // 32)
 
-    #print(two_stream_model.weights)
+    # print(two_stream_model.weights)
 
     if not os.path.exists('./DATA/'):
         os.makedirs('./DATA/')
 
-    two_stream_model.save('./DATA/HMDB_Two_final.h5')
-    with open('./DATA/HMDB_Two_final.json', 'w') as f:
+    two_stream_model.save('./DATA/HMDB_Two_connection.h5')
+    with open('./DATA/HMDB_Two_connection.json', 'w') as f:
         json.dump(two_stream.history, f)
 
 # Generate two-stream sequence to feed into generators
@@ -163,13 +174,17 @@ if __name__ == '__main__':
 
     filename_final = './DATA/HMDB_Two_final.json'
     filename_validation = './DATA/HMDB_Two_final_validation.json'
+    filename_connection = './DATA/HMDB_Two_connection.json'
     # p4.plotting(filename_final)
     # # p4.weights('./DATA/')
     # # model = tf.keras.models.load_model('./DATA/HMDB_Two_final.h5')
     # # for i, w in enumerate(model.weights):
     # #     print(i, w.name)
     #
-    p4.topAcc([filename_final, filename_validation])
+    # p4.comparison(filename_final,filename_connection)
+    p4.topAcc([filename_final, filename_validation, filename_connection])
     #
-    # model = tf.keras.models.load_model('./DATA/HMDB_Opt_final_1.h5')
-    # model.summary()
+    model = tf.keras.models.load_model('./DATA/HMDB_Two_connection.h5')
+    model.summary()
+    model = tf.keras.models.load_model('./DATA/HMDB_Two_final.h5')
+    model.summary()

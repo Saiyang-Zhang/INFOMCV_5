@@ -6,11 +6,12 @@ import json
 import numpy as np
 import p4
 import pandas as pd
-from keras.optimizers import Adam
+from keras.optimizers import SGD
 from keras import layers
 from keras.preprocessing.image import ImageDataGenerator
-from keras.callbacks import ReduceLROnPlateau
+from keras.callbacks import ReduceLROnPlateau, LearningRateScheduler
 from sklearn.model_selection import train_test_split
+from math import pi, cos
 
 keep_hmdb51 = ["clap", "climb", "drink", "jump", "pour", "ride_bike", "ride_horse",
             "run", "shoot_bow", "smoke", "throw", "wave"]
@@ -157,8 +158,13 @@ def HMDB_Fra(train_generator, val_generator, len_train, len_val):
     fine_tuned_model = tf.keras.models.Model(inputs=model.inputs, outputs=new_output)
     fine_tuned_model.summary()
 
-    fine_tuned_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3)
+    # fine_tuned_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    # lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3)
+
+    # Choice 3: Cyclical Learning
+    fine_tuned_model.compile(loss='categorical_crossentropy', optimizer=SGD(learning_rate=0.001),
+                             metrics=['accuracy'])
+    lr_scheduler = LearningRateScheduler(lambda epoch: cosine_annealing(epoch, 13, 0.001, 0.0001))
 
     HMDB = model.fit(
             train_generator,
@@ -175,25 +181,31 @@ def HMDB_Fra(train_generator, val_generator, len_train, len_val):
     HMDB_new = HMDB.history.copy()
     HMDB_new['lr'] = lr_value
 
-    fine_tuned_model.save('./DATA/HMDB_final_1.h5')
-    with open('./DATA/HMDB_final_validation_1.json', 'w') as f:
+    #fine_tuned_model.save('./DATA/HMDB_final.h5')
+    with open('./DATA/HMDB_cyclical.json', 'w') as f:
         # json.dump(HMDB.history, f)
         json.dump(HMDB_new, f)
+
+# Choice 3: Cyclical Learning
+def cosine_annealing(epoch, total_epochs, lr_max, lr_min):
+    cos_inner = (pi * epoch) / (total_epochs - 1)
+    return (lr_max + lr_min) / 2 + (lr_max - lr_min) / 2 * cos(cos_inner)
 
 
 if __name__ == '__main__':
     train_files, train_labels, test_files, test_labels = load_data()
-    extract_frame(train_files, train_labels, test_files, test_labels)
+    # extract_frame(train_files, train_labels, test_files, test_labels)
     train_generator, val_generator = load_Fra(train_files, train_labels, test_files, test_labels)
     HMDB_Fra(train_generator, val_generator, len(train_files), len(test_files))
 
     filename_final = './DATA/HMDB_final.json'
     filename_validation = './DATA/HMDB_final_validation.json'
+    filename_cyclical = './DATA/HMDB_cyclical.json'
     # p4.plotting(filename_final)
 
-    p4.topAcc([filename_final, filename_validation])
+    p4.topAcc([filename_final, filename_validation, filename_cyclical])
 
-    # p4.comparison(filename, filename_final)
+    p4.comparison(filename_final, filename_cyclical)
 
     # model = tf.keras.models.load_model('./DATA/HMDB_final.h5')
     # model.summary()
