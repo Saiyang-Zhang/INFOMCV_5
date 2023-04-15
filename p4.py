@@ -221,10 +221,10 @@ def comparison(filename1, filename2):
         history2 = json.load(f)
 
     # Plot the training/validation loss per epoch
-    plt.plot(history1['loss'], label='Training loss 1', color='C0')
-    plt.plot(history1['val_loss'], label='Validation loss 1', color='C1')
-    plt.plot(history2['loss'], label='Training loss 2',linestyle='--', color='C0')
-    plt.plot(history2['val_loss'], label='Validation loss 2',linestyle='--', color='C1')
+    plt.plot(history1['loss'], label='Train loss 1', color='C0')
+    plt.plot(history1['val_loss'], label='Test loss 1', color='C1')
+    plt.plot(history2['loss'], label='Train loss 2',linestyle='--', color='C0')
+    plt.plot(history2['val_loss'], label='Test loss 2',linestyle='--', color='C1')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
@@ -233,10 +233,10 @@ def comparison(filename1, filename2):
     plt.close()
 
     # Plot the training/validation accuracy per epoch
-    plt.plot(history1['accuracy'], label='Training accuracy 1', color='C0')
-    plt.plot(history1['val_accuracy'], label='Validation accuracy 1', color='C1')
-    plt.plot(history2['accuracy'], label='Training accuracy 2',linestyle='--', color='C0')
-    plt.plot(history2['val_accuracy'], label='Validation accuracy 2', linestyle='--', color='C1')
+    plt.plot(history1['accuracy'], label='Train accuracy 1', color='C0')
+    plt.plot(history1['val_accuracy'], label='Test accuracy 1', color='C1')
+    plt.plot(history2['accuracy'], label='Train accuracy 2',linestyle='--', color='C0')
+    plt.plot(history2['val_accuracy'], label='Test accuracy 2', linestyle='--', color='C1')
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
     plt.legend()

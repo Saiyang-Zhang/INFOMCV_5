@@ -133,7 +133,7 @@ def load_Opt(train_files, train_labels, test_files, test_labels):
 
     all_files = train_files_opt + test_files_opt
     all_labels = np.concatenate((train_onehot_labels, test_onehot_labels), axis=0)
-    # for HMDB_Opt
+    # for HMDB_Opt train-test
     # train, test, trainLabels, testLabels = train_test_split(all_files, all_labels, test_size=0.1,
     #                                                         stratify=all_labels, random_state=0)
     # for two-stream only
@@ -149,7 +149,7 @@ def load_Opt(train_files, train_labels, test_files, test_labels):
     #                                           batch_size, False)
     # print(test_flow_sequence)
 
-    # for HMDB_Opt
+    # for HMDB_Opt train-test
     # train_flow_sequence = OpticalFlowSequence(data_dir, train, trainLabels,
     #                                           batch_size, True)
     # for two-stream only
@@ -206,11 +206,11 @@ def HMDB_Opt(train_generator, val_generator, len_train, len_val):
 
     HMDB_Opt = model.fit(
             train_generator,
-            #steps_per_epoch=(len_train * 0.9) // 32,        # validation
+            # steps_per_epoch=(len_train * 0.9) // 32,        # validation
             steps_per_epoch=(len_train+len_val) * 0.9 // 32,
             epochs=13,
             validation_data=val_generator,
-            #validation_steps=(len_train * 0.1) // 32,       # validation
+            # validation_steps=(len_train * 0.1) // 32)       # validation
             validation_steps=(len_train+len_val) * 0.1 // 32)
 
     if not os.path.exists('./DATA/'):
@@ -221,18 +221,20 @@ def HMDB_Opt(train_generator, val_generator, len_train, len_val):
 
 
 if __name__ == '__main__':
-    # train_files, train_labels, test_files, test_labels = p5_HMDB_Fra.load_data()
-    # # extract_opt_save(train_files, train_labels, './optical_flow/')
-    # # extract_opt_save(test_files, test_labels, './optical_flow/')
-    # train_generator, val_generator = load_Opt(train_files, train_labels, test_files, test_labels)
-    # HMDB_Opt(train_generator, val_generator, len(train_files), len(test_files))
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    train_files, train_labels, test_files, test_labels = p5_HMDB_Fra.load_data()
+    # extract_opt_save(train_files, train_labels, './optical_flow/')
+    # extract_opt_save(test_files, test_labels, './optical_flow/')
+    train_generator, val_generator = load_Opt(train_files, train_labels, test_files, test_labels)
+    HMDB_Opt(train_generator, val_generator, len(train_files), len(test_files))
 
     filename_final = './DATA/HMDB_Opt_final.json'
     filename_validation = './DATA/HMDB_Opt_final_validation.json'
     # p4.plotting(filename_final)
     # p4.comparison(filename, filename_final)
     #
-    # # model = tf.keras.models.load_model('./DATA/HMDB_Opt_final.h5')
+    model = tf.keras.models.load_model('./DATA/HMDB_Opt_final.h5')
+    model.summary()
     # # for i, w in enumerate(model.weights):
     # #     print(i, w.name)
     #
