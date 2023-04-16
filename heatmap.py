@@ -6,11 +6,13 @@ from IPython.display import Image, display
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
+'''
+heatmap for HMDB51 frame 
+'''
 model_builder = keras.applications.xception.Xception
 img_size = (224, 224)
 preprocess_input = keras.applications.xception.preprocess_input
 decode_predictions = keras.applications.xception.decode_predictions
-
 
 def get_img_array(img_path, size):
     img = keras.preprocessing.image.load_img(img_path, target_size=size)
@@ -53,9 +55,12 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name, pred_index=None
     return heatmap.numpy()
 
 # The local path to our target image
-img_path = "clap.jpg"
-model = tf.keras.models.load_model('./HMDB_final.h5')
+img_path = "./Choices/clap.jpg"
+img_path = "./Choices/shoot_bow.jpg"
+
+model = tf.keras.models.load_model('./DATA/HMDB_final.h5')
 last_conv_layer_name = "conv2d_3"
+
 
 display(Image(img_path))
 
@@ -102,6 +107,5 @@ def save_and_display_gradcam(img_path, heatmap, cam_path="cam.jpg", alpha=0.4):
 
     # Display Grad CAM
     display(Image(cam_path))
-
 
 save_and_display_gradcam(img_path, heatmap)
